@@ -10,3 +10,14 @@ def get_stock_data(ticker_symbol, time_period="1y", time_interval="1d"):
     stock = yf.Ticker(ticker_symbol)
     df = stock.history(period=time_period, interval=time_interval)
     return df
+
+def get_company_info(ticker_symbol):
+    """
+    Fetches fundamental data and company profile information.
+    """
+    try:
+        stock = yf.Ticker(ticker_symbol)
+        info = stock.info
+        return info
+    except Exception as e:
+        return None

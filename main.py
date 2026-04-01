@@ -1,7 +1,12 @@
 import streamlit as st
-from utils.data_fetcher import get_stock_data
+import pandas as pd
+import plotly.express as px
+from utils.data_fetcher import get_stock_data, get_company_info
 from utils.charts import create_candlestick_chart
-from utils.indicators import add_technical_indicators
+from utils.indicators import add_technical_indicators, get_rsi_metrics
+from utils.ml_features import generate_ml_features 
+from utils.ai_models import train_and_predict, generate_analyst_briefing
+from utils.sentiment_analyzer import get_news_sentiment
 
 st.set_page_config(page_title="Smart Trading Dashboard", layout="wide")
 st.title("📈 Smart Trading Dashboard")
@@ -44,17 +49,213 @@ with col3:
 if ticker:
     # 1. Fetch data
     raw_data = get_stock_data(ticker, time_period=time_period, time_interval=time_interval)
+    company_info = get_company_info(ticker) # Fetch the new company info!
     
-    # Error Handling: Check if the API returned an empty dataframe
     if raw_data.empty:
         st.error(f"No data found for {ticker}. The ticker might be invalid, or Yahoo Finance may be temporarily blocking the request.")
     else:
         # 2. Add the math
         analyzed_data = add_technical_indicators(raw_data)
         
-        # 3. Create and show the massive chart
+        # --- NEW: TOP METRICS ROW ---
+        st.markdown("---") # Adds a subtle divider line
+        
+        # Extract the latest numbers for our metrics
+        # Extract the latest numbers for our metrics
+        latest_close = analyzed_data['Close'].iloc[-1]
+        prev_close = analyzed_data['Close'].iloc[-2] if len(analyzed_data) > 1 else latest_close
+        amt_change = latest_close - prev_close
+        pct_change = ((latest_close - prev_close) / prev_close) * 100
+        price_state = f"{amt_change:+.2f} ({pct_change:+.2f}%)"
+        
+        # --- NEW: Day Range ---
+        latest_high = analyzed_data['High'].iloc[-1]
+        latest_low = analyzed_data['Low'].iloc[-1]
+        day_range = f"\${latest_low:.2f} - \${latest_high:.2f}"
+        
+        # --- NEW: Relative Volume ---
+        latest_volume = analyzed_data['Volume'].iloc[-1]
+        avg_vol_20 = analyzed_data['Volume'].rolling(20).mean().iloc[-1]
+        if not pd.isna(avg_vol_20) and avg_vol_20 > 0:
+            vol_delta_pct = ((latest_volume - avg_vol_20) / avg_vol_20) * 100
+            vol_state = f"{vol_delta_pct:+.1f}% vs 20d Avg"
+        else:
+            vol_state = "N/A"
+        
+        # --- SMART RSI LOGIC ---
+        latest_rsi, rsi_state, delta_color, delta_arrow = get_rsi_metrics(analyzed_data['RSI'].iloc[-1])
+
+        # --- SMART SMA LOGIC ---
+        latest_sma20 = analyzed_data['SMA_20'].iloc[-1] if not pd.isna(analyzed_data['SMA_20'].iloc[-1]) else 0
+        if latest_sma20 > 0:
+            sma_distance_pct = ((latest_close - latest_sma20) / latest_sma20) * 100
+            sma_state = f"{sma_distance_pct:+.2f}% (Price vs SMA)"
+        else:
+            sma_state = "N/A"
+
+        # Create 5 columns for the metrics!
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Current Price", f"${latest_close:.2f}", price_state)
+        m2.metric("Day Range", day_range) 
+        m3.metric("Volume", f"{latest_volume:,.0f}", vol_state) 
+        m4.metric("RSI (14)", f"{latest_rsi:.1f}", rsi_state, delta_color=delta_color, delta_arrow=delta_arrow) 
+        m5.metric("SMA 20", f"${latest_sma20:.2f}", sma_state)
+        
+        # --- THE MAIN CHART ---
         fig = create_candlestick_chart(analyzed_data, ticker)
         st.plotly_chart(fig, width='stretch')
+
+        # ==========================================
+        # 🤖 MACHINE LEARNING SECTION
+        # ==========================================
+        st.markdown("---")
+        st.subheader("🤖 AI Price Prediction Model")
         
-        with st.expander("View Analyzed Data Table"):
+        # 1. Generate the heavy ML features
+        ml_data = generate_ml_features(raw_data)
+        
+        # Initialize prediction as None. It only gets updated if the ML model runs successfully!
+        prediction = None 
+        
+        # 2. The Safeguard! Check if we have enough data to train a model
+        if len(ml_data) < 100:
+            st.warning("⚠️ Insufficient data for reliable ML prediction. Please select a longer 'Time Period' (e.g., 1y, 2y, 5y).")
+        else:
+            with st.spinner("Training Random Forest Model on historical data..."):
+                # 3. Run the model
+                prediction, accuracy, feature_importances = train_and_predict(ml_data)
+                
+                # 4. Calculate if the prediction is higher or lower than the current price
+                predicted_change = prediction - latest_close
+                predicted_pct = (predicted_change / latest_close) * 100
+                
+                # 5. Build the UI
+                ai_col1, ai_col2 = st.columns([1, 1.5]) # Left column is smaller, right is wider
+                
+                with ai_col1:
+                    st.success("✅ Model trained successfully!")
+                    st.metric(
+                        label="Next Period Prediction", 
+                        value=f"${prediction:.2f}", 
+                        delta=f"{predicted_change:+.2f} ({predicted_pct:+.2f}%) expected"
+                    )
+                    st.info(f"**Test Accuracy:** {accuracy:.1f}%")
+                    st.caption("Note: Accuracy is based on testing against historical data unseen by the model during training. Not financial advice.")
+                
+                with ai_col2:
+                    # Draw a horizontal bar chart of the most important features
+                    st.write("**Top Drivers of this Prediction:**")
+                    fig_features = px.bar(
+                        feature_importances, 
+                        x='Importance', 
+                        y='Feature', 
+                        orientation='h',
+                        color_discrete_sequence=['#636EFA'] # A nice blue color
+                    )
+                    fig_features.update_layout(
+                        template="plotly_dark",
+                        height=250, 
+                        margin=dict(l=0, r=0, t=0, b=0),
+                        yaxis={'categoryorder':'total ascending'} # Puts the biggest bar at the top
+                    )
+                    st.plotly_chart(fig_features, use_container_width=True)
+                
+        # ==========================================
+        # 📝 AI ANALYST BRIEFING SECTION
+        # ==========================================
+        # Notice this is now OUTSIDE the ML 'else' block! It will run every time.
+        st.markdown("---")
+        st.subheader("📝 Automated Analyst Briefing")
+        
+        # We pass prediction, which will be either a dollar amount or 'None'
+        bull_case, bear_case, verdict = generate_analyst_briefing(analyzed_data, prediction)
+        
+        # Display the Verdict at the top
+        st.markdown(f"**{verdict}**")
+        
+        # Display Bull vs Bear in columns
+        brief_col1, brief_col2 = st.columns(2)
+        with brief_col1:
+            st.success("**The Bull Case (Why it could go up):**")
+            for point in bull_case:
+                st.write(f"📈 {point}")
+                
+        with brief_col2:
+            st.error("**The Bear Case (Why it could go down):**")
+            for point in bear_case:
+                st.write(f"📉 {point}")
+        
+        # ==========================================
+        # 📰 LIVE NEWS & SENTIMENT SECTION
+        # ==========================================
+        st.markdown("---")
+        st.subheader("📰 Live News & Sentiment Analysis")
+        
+        # Fetch and analyze the news
+        news_articles, avg_polarity, overall_mood = get_news_sentiment(ticker)
+        
+        if news_articles:
+            # Create two columns: one for the articles, one for the sentiment meter
+            news_col, meter_col = st.columns([2, 1])
+            
+            with meter_col:
+                st.write("**Overall News Sentiment**")
+                # Display a visual metric for the mood
+                if "Bullish" in overall_mood:
+                    st.success(f"**{overall_mood}**")
+                elif "Bearish" in overall_mood:
+                    st.error(f"**{overall_mood}**")
+                else:
+                    st.warning(f"**{overall_mood}**")
+                    
+                # Show the raw NLP score
+                st.metric("Raw Polarity Score", f"{avg_polarity:+.2f}", help="Scores range from -1.0 (Very Negative) to +1.0 (Very Positive)")
+                st.caption("Powered by Natural Language Processing (TextBlob)")
+
+            with news_col:
+                st.write("**Latest Headlines (from Yahoo Finance):**")
+                for article in news_articles:
+                    # Use Markdown to create clickable links
+                    st.markdown(f"[{article['title']}]({article['link']})")
+                    st.caption(f"{article['publisher']} | {article['date']} | NLP Score: {article['sentiment']:+.2f}")
+        else:
+            st.write("No recent news articles found for this ticker.")
+
+
+        # --- BOTTOM TABS ---
+        st.markdown("---")
+        tab1, tab2, tab3 = st.tabs(["🏢 Company Profile", "📊 Financial Summary", "📋 Raw Data Table"])
+        
+        with tab1:
+            if company_info:
+                st.subheader(company_info.get('longName', ticker.upper()))
+                st.write(f"**Sector:** {company_info.get('sector', 'N/A')} | **Industry:** {company_info.get('industry', 'N/A')} | **Location:** {company_info.get('city', 'N/A')}, {company_info.get('country', 'N/A')}")
+                st.write(company_info.get('longBusinessSummary', 'No summary available.'))
+            else:
+                st.write("Company profile data not available.")
+                
+        with tab2:
+            if company_info:
+                f1, f2 = st.columns(2)
+                with f1:
+                    st.write(f"**Market Cap:** ${company_info.get('marketCap', 0):,}")
+                    
+                    # Safely check if these metrics are numbers before applying the .2f formatting
+                    t_pe = company_info.get('trailingPE')
+                    st.write(f"**Trailing P/E:** {f'{t_pe:.2f}' if isinstance(t_pe, (int, float)) else 'N/A'}")
+                    
+                    f_pe = company_info.get('forwardPE')
+                    st.write(f"**Forward P/E:** {f'{f_pe:.2f}' if isinstance(f_pe, (int, float)) else 'N/A'}")
+                    
+                    eps = company_info.get('forwardEps')
+                    st.write(f"**EPS (Forward):** {f'{eps:.2f}' if isinstance(eps, (int, float)) else 'N/A'}")
+                with f2:
+                    st.write(f"**52 Week High:** ${company_info.get('fiftyTwoWeekHigh', 'N/A')}")
+                    st.write(f"**52 Week Low:** ${company_info.get('fiftyTwoWeekLow', 'N/A')}")
+                    st.write(f"**Average Volume:** {company_info.get('averageVolume', 0):,}")
+            else:
+                st.write("Financial summary data not available.")
+                
+        with tab3:
+            st.write("Here's the raw historical data, respective of the time period and candle interval shown in the chart, with technical indicators added:")
             st.dataframe(analyzed_data)

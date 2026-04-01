@@ -36,3 +36,22 @@ def add_technical_indicators(df):
     data['Stoch_D'] = data['Stoch_K'].rolling(window=3).mean()
     
     return data
+
+def get_rsi_metrics(rsi_value):
+    """Evaluates RSI and returns the State, Color, and Arrow direction."""
+    # 1. Handle the NaN case immediately (Early Return)
+    if pd.isna(rsi_value):
+        return 0, "Neutral", "primary", "off"
+    
+    # 2. Evaluate from top to bottom
+    if rsi_value > 70:
+        return rsi_value, "Overbought", "red", "up"
+    if rsi_value >= 60:
+        return rsi_value, "Approaching Overbought", "red", "up"
+    if rsi_value < 30:
+        return rsi_value, "Oversold", "green", "down"
+    if rsi_value <= 40:
+        return rsi_value, "Approaching Oversold", "green", "down"
+        
+    # 3. Default fallback
+    return rsi_value, "Neutral", "yellow", "off"
