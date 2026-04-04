@@ -9,9 +9,10 @@ from utils.ai_models import train_and_predict, generate_analyst_briefing
 from utils.sentiment_analyzer import get_news_sentiment
 from utils.risk_calculator import calculate_trade_risk
 
-st.set_page_config(page_title="Smart Trading Dashboard", layout="wide")
-st.title("📈 Smart Trading Dashboard")
-st.write("Welcome to your AI-powered stock analysis tool. Enter a ticker below to view advanced technical analysis, momentum indicators, and risk management data to support your next trade!") 
+st.set_page_config(page_title="Intelligent Trading Dashboard", layout="wide")
+st.title("📈 Intelligent Trading Dashboard")
+st.write("Welcome to your AI-powered stock analysis and risk management tool. Enter a ticker below to view advanced technical analysis, momentum indicators, and risk management data to support your next trade!" \
+"\n\nUse the sidebar to plan your trade with the Smarter Trade Planner, which calculates optimal position sizing based on your account parameters and risk tolerance. ") 
 
 # Create 3 columns for our user inputs so they sit nicely side-by-side
 col1, col2, col3 = st.columns(3)
@@ -110,7 +111,7 @@ if ticker:
         if 'trade_levels' not in st.session_state:
             st.session_state.trade_levels = None
 
-        st.sidebar.header("🧮 Smart Trade Planner")
+        st.sidebar.header("🧮 The Smarter Trade Planner")
         st.sidebar.write("Plan your position sizing using AI defaults or custom levels.")
 
         account_size = st.sidebar.number_input("Account Size ($)", min_value=100.0, value=10000.0, step=100.0)
