@@ -1,4 +1,4 @@
-# 📈 Smart Trading Dashboard 
+# 📈 Intelligent Trading Dashboard and Risk Calculator 
 
 ![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B.svg?logo=streamlit&logoColor=white)
