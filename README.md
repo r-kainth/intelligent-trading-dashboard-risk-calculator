@@ -13,19 +13,21 @@ Main Charts:
 
 <img width="2452" height="1233" alt="image" src="https://github.com/user-attachments/assets/49add17c-f585-4678-8251-797cf4ac5489" />
 
+---
 ML Price Prediction and AI Briefing Section:
 
 <img width="2479" height="1204" alt="image" src="https://github.com/user-attachments/assets/92cf3164-323c-426a-a8c0-28f9c91acc58" />
 
+---
 "Smarter" Trade Planner Sidebar:
 
 <img width="434" height="875" alt="image" src="https://github.com/user-attachments/assets/52a34447-b460-4b82-846f-45fb611ba204" />
 
+---
 
 Trade Planner lines/levels shown on chart:
 
 <img width="2493" height="1229" alt="image" src="https://github.com/user-attachments/assets/c16bbc88-b394-46ef-8d30-fb679227fbc4" />
-
 
 ---
 
@@ -46,6 +48,24 @@ Trade Planner lines/levels shown on chart:
 * **Data Processing:** Pandas, NumPy
 * **Machine Learning:** Scikit-Learn (`RandomForestRegressor`)
 * **Natural Language Processing:** TextBlob
+
+---
+
+## Project Structure
+```bash
+intelligent-trading-dashboard-risk-calculator/
+├── main.py                     # Main Streamlit application and UI layout
+├── requirements.txt            # Project dependencies
+├── README.md                   # Project documentation
+└── utils/                      # Core logic and helper modules
+    ├── ai_models.py            # Random Forest Machine Learning logic, and automated heuristic briefing generator
+    ├── charts.py               # Plotly interactive candlestick charting
+    ├── data_fetcher.py         # Yahoo Finance API and RSS feed integration
+    ├── indicators.py           # Technical indicator math (SMA, MACD, RSI)
+    ├── ml_features.py          # Feature engineering for the ML model
+    ├── risk_calculator.py      # Risk management and position sizing math
+    └── sentiment_analyzer.py   # TextBlob NLP news sentiment scoring
+```
 
 ---
 
@@ -72,6 +92,8 @@ pip install -r requirements.txt
 ```bash
 streamlit run main.py
 ```
+
+---
 
 ## ⚠️ Disclaimer
 **Educational Purposes Only.** This software is for educational and research purposes only. Do not use this application to make real-world financial decisions. 
