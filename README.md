@@ -4,7 +4,7 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B.svg?logo=streamlit&logoColor=white)
 ![Machine Learning](https://img.shields.io/badge/Machine%20Learning-Scikit--Learn-orange.svg)
 
-A professional-grade, AI-powered stock market terminal built with Python. This application combines advanced technical charting, Machine Learning price predictions, Natural Language Processing (NLP) news sentiment, and strict risk management execution into a single, cohesive Streamlit dashboard.
+An AI-powered stock market terminal built with Python. This application combines advanced technical charting, Machine Learning price predictions, Natural Language Processing (NLP) news sentiment, and strict risk management execution into a single, cohesive Streamlit dashboard.
 
 ---
 
